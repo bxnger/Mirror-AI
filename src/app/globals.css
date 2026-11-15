@@ -1,0 +1,218 @@
+@import "tailwindcss";
+
+/*
+ * MIRROR AI design tokens — see .claude/skills/mirror-design-system/SKILL.md
+ * Semantic roles:
+ *   now     — the present, known, solid (warm off-white)
+ *   path-a  — scenario A (cool blue)
+ *   path-b  — scenario B (apricot) — blue/orange stays distinguishable for colour-blind users
+ *   future  — the goal / Future Self, always drawn dashed (lavender)
+ *   done    — real completed work (sage)
+ */
+@theme {
+  --color-bg: #0b0f17;
+  --color-bg-elev: #0e131d;
+  --color-surface: #121926;
+  --color-surface-2: #172031;
+  --color-surface-3: #1e2a3e;
+  --color-line: #212b3d;
+  --color-line-strong: #33405a;
+
+  --color-ink: #f3f1ea;
+  --color-ink-2: #a8b0bf;
+  --color-ink-3: #8a93a6;
+
+  --color-now: #f3f1ea;
+  --color-path-a: #a3b9ff;
+  --color-path-b: #e8b98f;
+  --color-future: #c3afe4;
+  --color-done: #8fd3b6;
+  --color-warn: #e6c27a;
+  --color-risk: #f0a2a2;
+
+  --radius-panel: 14px;
+  --radius-control: 9px;
+
+  --text-display: clamp(2rem, 1.4rem + 2.6vw, 3.25rem);
+  --text-display--line-height: 1.08;
+  --text-title: clamp(1.625rem, 1.3rem + 1.2vw, 2.125rem);
+  --text-title--line-height: 1.15;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/*
+ * Light theme — "paper" counterpart of Midnight Future. Same semantic roles;
+ * accents darkened so text-coloured usages stay ≥ 4.5:1 on the warm background.
+ */
+:root[data-theme="light"] {
+  --color-bg: #f6f3ec;
+  --color-bg-elev: #efebe2;
+  --color-surface: #fbf9f4;
+  --color-surface-2: #f1ede4;
+  --color-surface-3: #e5dfd3;
+  --color-line: #e0d9cc;
+  --color-line-strong: #c8bfae;
+
+  --color-ink: #161a23;
+  --color-ink-2: #454c5a;
+  --color-ink-3: #5f6673;
+
+  --color-now: #1d2330;
+  --color-path-a: #3a57d0;
+  --color-path-b: #a4531a;
+  --color-future: #6e4fb0;
+  --color-done: #2b7350;
+  --color-warn: #8a5a00;
+  --color-risk: #b8322c;
+}
+
+@theme inline {
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-literata), ui-serif, Georgia, serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-path-a) 35%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-path-a);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  /* Mono uppercase label used for metadata and section eyebrows. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.4;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-ink-3);
+  }
+
+  /* Faint dot grid — used only behind the trajectory canvas. */
+  .dot-grid {
+    background-image: radial-gradient(color-mix(in oklab, var(--color-ink) 9%, transparent) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ---- TwinMirror 2.5D: frames face each other across the mirror axis; plates parallax by depth. */
+.twin-stage {
+  perspective: 1100px;
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --px: 0;
+  --py: 0;
+}
+.twin-frame > div:first-child {
+  --face: 0deg;
+  transform: rotateX(var(--tilt-x)) rotateY(calc(var(--face) + var(--tilt-y)));
+  transition: transform 450ms var(--ease-out-soft), border-color 300ms;
+}
+.twin-plate {
+  transform: translate3d(calc(var(--px) * var(--d, 0) * 1px), calc(var(--py) * var(--d, 0) * 1px), 0);
+  transition: transform 450ms var(--ease-out-soft);
+}
+.twin-mono-outline {
+  color: transparent;
+  -webkit-text-stroke: 1.25px var(--color-future);
+}
+@media (min-width: 768px) {
+  .twin-frame[data-side="current"] > div:first-child {
+    --face: 7deg;
+  }
+  .twin-frame[data-side="future"] > div:first-child {
+    --face: -7deg;
+  }
+  .twin-frame[data-active="false"] > div:first-child {
+    scale: 0.93;
+  }
+}
+.twin-frame[data-active="true"] {
+  animation: rise 420ms var(--ease-out-soft) both;
+}
+@media (min-width: 768px) {
+  .twin-frame[data-active="true"] {
+    animation: none;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes draw {
+  from {
+    stroke-dashoffset: var(--len, 400);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.animate-rise {
+  animation: rise 420ms var(--ease-out-soft) both;
+}
+
+.animate-draw {
+  stroke-dasharray: var(--len, 400);
+  animation: draw 900ms var(--ease-out-soft) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
+}
