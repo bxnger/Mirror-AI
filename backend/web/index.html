@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MIRROR AI · Future Self</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="/static/style.css?v=2">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">◐</div>
+      <div>
+        <div class="brand-name">MIRROR AI <span class="muted">· Future Self</span></div>
+        <div class="tagline">Your future self starts with today's decisions.</div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <span id="demo-badge" class="badge badge-demo" hidden>DEMO DATA</span>
+      <span id="llm-badge" class="badge"></span>
+      <span id="user-label" class="muted"></span>
+      <button id="btn-exit" class="btn btn-ghost btn-sm" hidden>Сменить пользователя</button>
+    </div>
+  </header>
+
+  <nav id="loop" class="loop" aria-label="Decision-to-Outcome loop"></nav>
+
+  <main id="app">
+    <section id="start" class="card start">
+      <h1>Цифровой двойник: от текущего себя к желаемому</h1>
+      <p class="lead">MIRROR AI сравнивает ваше <b>текущее состояние</b> (факты) с <b>Future Self</b>
+        (желаемое состояние — не прогноз), помогает выбрать сценарий распределения времени, строит
+        недельный план и адаптирует его по реальным результатам.</p>
+      <div class="start-actions">
+        <button id="btn-demo" class="btn btn-primary">Запустить DEMO: студент из Казахстана</button>
+        <form id="form-open" class="inline-form">
+          <input id="open-id" type="number" min="1" placeholder="ID пользователя" aria-label="ID пользователя">
+          <button class="btn">Открыть</button>
+        </form>
+      </div>
+      <details class="new-user">
+        <summary>Создать своего пользователя</summary>
+        <form id="form-user" class="grid-form">
+          <label>Имя<input name="name" required></label>
+          <label>Страна<input name="country" value="Казахстан"></label>
+          <label>Свободных часов в неделю<input name="hours" type="number" min="1" max="80" step="0.5" value="12" required></label>
+          <button class="btn btn-primary">Создать</button>
+        </form>
+      </details>
+    </section>
+
+    <div id="workspace" hidden>
+      <section id="sec-twin" class="card">
+        <div class="sec-head">
+          <h2><span class="step">1–2</span> Current Self ↔ Future Self</h2>
+          <button class="btn btn-ghost" data-toggle="goal-form">+ Цель</button>
+        </div>
+        <form id="goal-form" class="grid-form goal-form" hidden>
+          <label>Название<input name="title" required placeholder="Например, IELTS"></label>
+          <label>Тип метрики
+            <select name="metric_type">
+              <option value="numeric">Число (баллы)</option>
+              <option value="level">Уровень (шкала)</option>
+            </select>
+          </label>
+          <label>Шкала (для уровня)
+            <select name="scale"><option value="cefr">CEFR A1–C2</option><option value="proficiency">Beginner–Expert</option></select>
+          </label>
+          <label>Область
+            <select name="domain"><option value="exam">Экзамен</option><option value="language">Язык</option><option value="programming">Программирование</option><option value="other">Другое</option></select>
+          </label>
+          <label>Мин. шкалы<input name="min_value" type="number" placeholder="400"></label>
+          <label>Макс. шкалы<input name="max_value" type="number" placeholder="1600"></label>
+          <label>Сейчас (факт)<input name="current" required placeholder="1180 или B1"></label>
+          <label>Источник
+            <select name="source"><option value="self_assessment">Самооценка</option><option value="mock_test">Пробный тест</option><option value="official_test">Официальный результат</option></select>
+          </label>
+          <label>Хочу (Future Self)<input name="target" required placeholder="1400 или B2"></label>
+          <label>Целевая дата<input name="target_date" type="date"></label>
+          <label>Приоритет 1–5<input name="priority" type="number" min="1" max="5" value="3"></label>
+          <label class="span2">Этапы (через ;)<input name="milestones" placeholder="Диагностика; Пробный тест"></label>
+          <button class="btn btn-primary">Добавить цель</button>
+        </form>
+        <div id="twin"></div>
+      </section>
+
+      <section id="sec-gap" class="card">
+        <h2><span class="step">3</span> Gap Analysis — разрыв между Current и Future Self</h2>
+        <div id="gap"></div>
+      </section>
+
+      <section id="sec-whatif" class="card">
+        <h2><span class="step">4–6</span> What If Lab</h2>
+        <p class="muted">Все числа считает система; AI только объясняет компромиссы и риски.</p>
+        <div id="scenarios"></div>
+        <details class="new-scenario">
+          <summary>Собрать свой сценарий</summary>
+          <form id="scenario-form" class="scenario-form"></form>
+        </details>
+        <div id="comparison"></div>
+      </section>
+
+      <section id="sec-plan" class="card">
+        <div class="sec-head">
+          <h2><span class="step">7–8</span> Action Plan</h2>
+          <div class="actions">
+            <button id="btn-simulate" class="btn btn-ghost" hidden>Отметить неделю (DEMO)</button>
+            <button id="btn-plan" class="btn btn-primary">Сгенерировать план недели</button>
+          </div>
+        </div>
+        <div id="plan"></div>
+      </section>
+
+      <section id="sec-reality" class="card">
+        <h2><span class="step">9</span> Reality Check</h2>
+        <form id="reality-form" class="reality-form">
+          <label class="grow">Как прошла неделя?<textarea name="feedback" rows="2" placeholder="Что мешало, что помогло"></textarea></label>
+          <label>Сложность 1–5<input name="difficulty" type="number" min="1" max="5" value="3"></label>
+          <button class="btn btn-primary">Провести Reality Check</button>
+        </form>
+        <div id="reality"></div>
+      </section>
+
+      <section id="sec-adapt" class="card">
+        <h2><span class="step">10</span> Adapt — следующий план с учётом фактов</h2>
+        <div id="adapt"></div>
+      </section>
+
+      <section id="sec-memory" class="card">
+        <h2>Adaptive Memory</h2>
+        <div id="memory"></div>
+      </section>
+    </div>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="/static/app.js?v=2"></script>
+</body>
+</html>
