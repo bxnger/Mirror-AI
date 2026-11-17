@@ -13,7 +13,8 @@ import { checkInt, checkText, LIMITS, type Errors } from "@/domain/validation";
 import { formatNumber, t } from "@/i18n";
 import { createId } from "@/lib/id";
 import { cn } from "@/lib/cn";
-import { actions } from "@/lib/store/use-mirror";
+import { commands } from "@/lib/store/commands";
+import { ApiErrorNotice } from "@/components/layout/profile-gate";
 
 const T = t.onboarding;
 const L = t.labels;
@@ -123,6 +124,8 @@ export function OnboardingWizard({ initial }: { initial: Profile | null }) {
   const [draft, setDraft] = useState<Draft>(() => fromProfile(initial));
   const [stepIndex, setStepIndex] = useState(0);
   const [errors, setErrors] = useState<Errors>({});
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<unknown>(null);
   const [focusTarget, setFocusTarget] = useState<"heading" | "error" | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -146,7 +149,7 @@ export function OnboardingWizard({ initial }: { initial: Profile | null }) {
     setFocusTarget("heading");
   }
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     const errs = validateStep(step, draft);
     if (Object.keys(errs).length > 0) {
@@ -168,8 +171,15 @@ export function OnboardingWizard({ initial }: { initial: Profile | null }) {
         return;
       }
     }
-    actions.saveProfile(toProfile(draft, initial));
-    router.push("/twin");
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await commands.saveProfile(toProfile(draft, initial));
+      router.push("/twin");
+    } catch (err) {
+      setSaveError(err);
+      setSaving(false);
+    }
   }
 
   return (
@@ -284,6 +294,11 @@ export function OnboardingWizard({ initial }: { initial: Profile | null }) {
           </div>
         </div>
 
+        {saveError !== null && (
+          <div className="mt-6 max-w-2xl">
+            <ApiErrorNotice error={saveError} />
+          </div>
+        )}
         <div className="sticky bottom-0 mt-10 flex max-w-2xl items-center justify-between gap-3 border-t border-line bg-bg/95 py-4 backdrop-blur lg:static lg:bg-transparent lg:backdrop-blur-none">
           <Button
             variant="ghost"
@@ -294,8 +309,8 @@ export function OnboardingWizard({ initial }: { initial: Profile | null }) {
           >
             {t.common.back}
           </Button>
-          <Button type="submit" variant="primary" size="lg" iconRight={step === "review" ? <Check /> : <ArrowRight />}>
-            {step === "review" ? (isEdit ? T.review.update : T.review.create) : t.common.next}
+          <Button type="submit" variant="primary" size="lg" disabled={saving} iconRight={step === "review" ? <Check /> : <ArrowRight />}>
+            {saving ? t.common.loading : step === "review" ? (isEdit ? T.review.update : T.review.create) : t.common.next}
           </Button>
         </div>
       </form>

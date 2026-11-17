@@ -1,6 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { API_MODE } from "@/lib/api";
+import { ensureSynced } from "@/lib/remote/session";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { ArrowRight } from "@/components/ui/icons";
 import { getActiveLocale, t } from "@/i18n";
@@ -9,6 +12,9 @@ import { useStartDemo } from "@/components/layout/use-demo";
 
 export function WelcomeActions() {
   const state = useMirror();
+  useEffect(() => {
+    if (API_MODE === "remote") ensureSynced();
+  }, []);
   const startDemo = useStartDemo();
   const hasProfile = Boolean(state?.profile);
   const router = useRouter();

@@ -8,7 +8,9 @@ import { currentWeek, summarize, weekRange } from "@/domain/plan";
 import type { Plan, PlanTask, Priority, Profile } from "@/domain/types";
 import { checkText } from "@/domain/validation";
 import { formatDate, formatNumber, t } from "@/i18n";
-import { getApi } from "@/lib/api";
+import { ApiErrorNotice } from "@/components/layout/profile-gate";
+import { commands } from "@/lib/store/commands";
+import { useCommand } from "@/lib/store/use-command";
 import { cn } from "@/lib/cn";
 import { createId } from "@/lib/id";
 import { actions, type MirrorState } from "@/lib/store/use-mirror";
@@ -17,12 +19,19 @@ const T = t.plan;
 const L = t.labels;
 const PRIORITY_TONE = { high: "risk", medium: "warn", low: "neutral" } as const;
 
-function TaskRow({ task }: { task: PlanTask }) {
+function TaskRow({ task, onToggle, busy }: { task: PlanTask; onToggle: (id: string) => void; busy: boolean }) {
   const title = task.source === "system" ? T.review : task.title;
+  const disabled = busy || Boolean(task.locked);
   return (
     <li className="group flex items-start gap-3 px-4 py-3 md:px-5">
-      <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-3">
-        <input type="checkbox" checked={task.done} onChange={() => actions.toggleTask(task.id)} className="peer sr-only" />
+      <label className={cn("flex min-w-0 flex-1 items-start gap-3", disabled ? "cursor-default" : "cursor-pointer")}>
+        <input
+          type="checkbox"
+          checked={task.done}
+          disabled={disabled}
+          onChange={() => onToggle(task.id)}
+          className="peer sr-only"
+        />
         <span
           aria-hidden="true"
           className={cn(
@@ -37,6 +46,9 @@ function TaskRow({ task }: { task: PlanTask }) {
             {title}
           </span>
           <span className="mt-1 flex flex-wrap items-center gap-1.5">
+            {task.dayOfWeek !== undefined && (
+              <span className="font-mono text-[11px] text-ink-2">{t.remote.days[task.dayOfWeek]}</span>
+            )}
             <Tag tone={PRIORITY_TONE[task.priority]}>{L.priority[task.priority]}</Tag>
             <span className="tabular font-mono text-[11px] text-ink-3">
               {formatNumber(task.estimateHours)} {t.common.hoursShort}
@@ -142,6 +154,9 @@ function AddTask({ week }: { week: number }) {
 
 function PlanView({ plan, state }: { plan: Plan; state: MirrorState }) {
   const path = state.decision?.paths[plan.pathId];
+  const cmd = useCommand();
+  const remote = state.remote;
+  const toggle = (id: string) => void cmd.run(() => commands.toggleTask(id));
   const total = summarize(plan.tasks);
   const now = currentWeek(plan);
   const weeks = Array.from({ length: plan.weeks }, (_, i) => i + 1);
@@ -185,6 +200,9 @@ function PlanView({ plan, state }: { plan: Plan; state: MirrorState }) {
         <p className="mt-2 text-[12px] text-ink-3">{T.saved}</p>
       </section>
 
+      {cmd.error !== null && <ApiErrorNotice error={cmd.error} />}
+      {remote && <p className="-mt-2 text-[13px] text-ink-3">{t.remote.tasksByServer}</p>}
+
       <ol className="grid gap-5">
         {weeks.map((w) => {
           const tasks = plan.tasks.filter((x) => x.week === w);
@@ -209,36 +227,47 @@ function PlanView({ plan, state }: { plan: Plan; state: MirrorState }) {
               </header>
               <ul className="divide-y divide-line">
                 {tasks.map((task) => (
-                  <TaskRow key={task.id} task={task} />
+                  <TaskRow key={task.id} task={task} onToggle={toggle} busy={cmd.pending} />
                 ))}
               </ul>
-              <AddTask week={w} />
+              {remote ? (
+                tasks.some((x) => x.locked) && <p className="border-t border-line px-4 py-2.5 text-[12.5px] text-ink-3 md:px-5">{t.remote.weekLocked}</p>
+              ) : (
+                <AddTask week={w} />
+              )}
             </li>
           );
         })}
       </ol>
+      <NextWeek state={state} />
+    </div>
+  );
+}
+
+/** Remote: after Reality Check of the latest week, the server builds the next one. */
+export function NextWeek({ state }: { state: MirrorState }) {
+  const cmd = useCommand();
+  if (!state.remote?.latestPlanReviewed) return null;
+  return (
+    <div className="flex flex-col gap-2 rounded-panel border border-dashed border-line-strong px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-[13.5px] text-ink-2">{t.remote.nextWeekHint}</p>
+      <Button variant="primary" disabled={cmd.pending} onClick={() => void cmd.run(() => commands.nextWeek())} iconRight={<ArrowRight />}>
+        {cmd.pending ? t.common.loading : t.remote.nextWeek}
+      </Button>
+      {cmd.error !== null && <ApiErrorNotice error={cmd.error} />}
     </div>
   );
 }
 
 export function ActionPlan({ state }: { state: MirrorState & { profile: Profile } }) {
-  const [creating, setCreating] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const cmd = useCommand();
   const { plan, decision, selectedPath, profile } = state;
 
   if (plan) return <PlanView plan={plan} state={state} />;
 
-  async function create() {
+  function create() {
     if (!decision || !selectedPath) return;
-    setCreating(true);
-    setFailed(false);
-    try {
-      actions.setPlan(await getApi().generatePlan({ profile, decision, pathId: selectedPath }));
-    } catch {
-      setFailed(true);
-    } finally {
-      setCreating(false);
-    }
+    void cmd.run(() => commands.createPlan({ profile, decision, pathId: selectedPath }));
   }
 
   const ready = Boolean(decision && selectedPath);
@@ -247,19 +276,15 @@ export function ActionPlan({ state }: { state: MirrorState & { profile: Profile 
       <PageHeader eyebrow={T.eyebrow} title={T.emptyTitle} lead={ready ? t.twin.nextChosen : T.emptyText} />
       <div className="flex flex-col items-start gap-3 rounded-panel border border-dashed border-line-strong px-5 py-6">
         {ready ? (
-          <Button variant="primary" onClick={create} disabled={creating} iconRight={<ArrowRight />}>
-            {creating ? t.common.loading : t.lab.result.toPlan}
+          <Button variant="primary" onClick={create} disabled={cmd.pending} iconRight={<ArrowRight />}>
+            {cmd.pending ? t.common.loading : t.lab.result.toPlan}
           </Button>
         ) : (
           <ButtonLink href="/lab" variant="primary" iconRight={<ArrowRight />}>
             {T.toLab}
           </ButtonLink>
         )}
-        {failed && (
-          <p role="alert" className="text-[13px] text-risk">
-            {t.lab.errorText}
-          </p>
-        )}
+        {cmd.error !== null && <ApiErrorNotice error={cmd.error} />}
       </div>
     </div>
   );

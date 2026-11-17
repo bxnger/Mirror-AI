@@ -15,6 +15,8 @@ import { createId } from "@/lib/id";
 import { actions, type MirrorState } from "@/lib/store/use-mirror";
 import { PlanVsReality } from "./plan-vs-reality";
 import { UpdatedScenario } from "./updated-scenario";
+import { RemoteWeek } from "./remote-week";
+import { NextWeek } from "@/components/plan/action-plan";
 
 export const ACTUAL_MAX = 80;
 const NOTE_MAX = 300;
@@ -302,9 +304,14 @@ export function RealityCheck({ state }: { state: MirrorState & { profile: Profil
           </span>
         </div>
         {/* Remount per week (not per save) so the "saved" confirmation stays visible. */}
-        <CheckInForm key={week} plan={plan} week={week} existing={existing} />
+        {state.remote ? (
+          <RemoteWeek key={week} plan={plan} week={week} existing={existing} remote={state.remote} />
+        ) : (
+          <CheckInForm key={week} plan={plan} week={week} existing={existing} />
+        )}
       </section>
 
+      {state.remote && <NextWeek state={state} />}
       <PlanVsReality plan={plan} checkIns={checkIns} />
       <UpdatedScenario plan={plan} path={path} checkIns={checkIns} profile={profile} />
 
@@ -331,7 +338,7 @@ export function RealityCheck({ state }: { state: MirrorState & { profile: Profil
                     {formatDate(c.updatedAt, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
-                <Button
+                {!state.remote && <Button
                   size="sm"
                   variant="ghost"
                   icon={<Pencil size={13} />}
@@ -346,7 +353,7 @@ export function RealityCheck({ state }: { state: MirrorState & { profile: Profil
                   aria-label={`${R.edit}: ${R.week(c.week)}`}
                 >
                   {R.edit}
-                </Button>
+                </Button>}
               </li>
             ))}
           </ul>
