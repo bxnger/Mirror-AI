@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
-import { Logo, LogoMark } from "@/components/brand/logo";
+import { useEffect, type ReactNode } from "react";
+import { Logo } from "@/components/brand/logo";
 import { ButtonLink, Button } from "@/components/ui/button";
-import { IconBranch, IconPlan, IconReality, IconTwin, Pencil, Reset, ArrowRight, Play } from "@/components/ui/icons";
-import { LoadingBlock } from "@/components/ui/surface";
+import { IconBranch, IconPlan, IconReality, IconTwin, Pencil, Reset, Play } from "@/components/ui/icons";
+import { API_MODE } from "@/lib/api";
+import { disconnect, ensureSynced } from "@/lib/remote/session";
+import { remoteActive } from "@/lib/store/commands";
 import { getActiveLocale, t } from "@/i18n";
 import { useLocale } from "@/i18n/use-locale";
 import { cn } from "@/lib/cn";
@@ -45,6 +47,24 @@ function useStatus() {
   } as Record<string, "done" | "active" | "todo">;
 }
 
+/** Where the data on screen lives — always visible, so demo/local/server are never confused. */
+function DataSource() {
+  const state = useMirror();
+  const label = state?.isDemo ? t.demo.badge : API_MODE === "remote" ? t.remote.connected : t.remote.localData;
+  return (
+    <p className="flex items-center gap-2 px-3 pb-1 font-mono text-[10.5px] uppercase tracking-wider text-ink-3">
+      <span
+        aria-hidden="true"
+        className={cn(
+          "size-1.5 rounded-full",
+          state?.isDemo ? "border border-dashed border-future" : API_MODE === "remote" ? "bg-done" : "bg-ink-3",
+        )}
+      />
+      {label}
+    </p>
+  );
+}
+
 function DemoButton({ className }: { className?: string }) {
   const state = useMirror();
   const start = useStartDemo();
@@ -75,6 +95,14 @@ function SideNav() {
   const router = useRouter();
 
   function onReset() {
+    if (remoteActive()) {
+      // Server data is never deleted from the browser — only this browser is disconnected.
+      if (window.confirm(t.remote.disconnectConfirm)) {
+        disconnect();
+        router.push("/");
+      }
+      return;
+    }
     if (window.confirm(t.nav.resetConfirm)) {
       actions.reset();
       router.push("/");
@@ -135,6 +163,7 @@ function SideNav() {
       </nav>
 
       <div className="grid gap-1 border-t border-line p-3">
+        <DataSource />
         <DemoButton />
         <ButtonLink href="/onboarding" variant="ghost" size="sm" className="justify-start" icon={<Pencil size={14} />}>
           {t.nav.editProfile}
@@ -217,30 +246,13 @@ function DemoBanner() {
   );
 }
 
-function NoProfile() {
-  const start = useStartDemo();
-  return (
-    <div className="mx-auto mt-10 max-w-md text-center animate-rise">
-      <div className="mx-auto grid size-14 place-items-center rounded-full border border-dashed border-line-strong">
-        <LogoMark size={26} />
-      </div>
-      <h1 className="mt-5 font-serif text-2xl">{t.empty.noProfileTitle}</h1>
-      <p className="mt-2 text-ink-2">{t.empty.noProfileText}</p>
-      <div className="mt-6 flex flex-col justify-center gap-2 sm:flex-row">
-        <ButtonLink href="/onboarding" variant="primary" iconRight={<ArrowRight />}>
-          {t.welcome.start}
-        </ButtonLink>
-        <Button variant="secondary" onClick={() => start(getActiveLocale())}>
-          {t.welcome.demo}
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 export function AppShell({ children }: { children: ReactNode }) {
   useLocale();
   const state = useMirror();
+  // Remote mode: load the server state once per page load (no-op in demo builds).
+  useEffect(() => {
+    if (API_MODE === "remote") ensureSynced();
+  }, []);
   return (
     <div className="flex min-h-dvh">
       <a
@@ -255,7 +267,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         {state?.isDemo && <DemoBanner />}
         <main id="main" className="w-full flex-1 px-4 pb-28 pt-6 md:px-8 md:pt-8 lg:pb-12">
           <div className="mx-auto w-full max-w-[1120px]">
-            {state === null ? <LoadingBlock label={t.common.loading} /> : state.profile ? children : <NoProfile />}
+            {/* Always render the page segment; each page gates itself with <ProfileGate>. */}
+            {children}
           </div>
         </main>
       </div>

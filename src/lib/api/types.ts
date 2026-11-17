@@ -1,10 +1,9 @@
 import type { Comparison, Decision, PathId, Plan, Profile } from "@/domain/types";
 
 /**
- * The contract the UI depends on. Two implementations are planned:
- *  - demo   (src/lib/api/demo-adapter.ts) — local rules, no network. ACTIVE.
- *  - remote — Erasyl's backend. NOT IMPLEMENTED: endpoints are not confirmed yet.
- *             Proposed contract: docs/backend-contract.md
+ * The contract the UI depends on for analysis in demo mode.
+ * Remote (FastAPI) mode goes through src/lib/remote/session.ts, which owns the
+ * server-backed state; both are dispatched by src/lib/store/commands.ts.
  */
 export interface MirrorApi {
   readonly mode: "demo" | "remote";
@@ -12,10 +11,23 @@ export interface MirrorApi {
   generatePlan(input: { profile: Profile; decision: Decision; pathId: PathId }): Promise<Plan>;
 }
 
+export type ApiErrorCode =
+  | "network"
+  | "timeout"
+  | "unavailable"
+  | "server"
+  | "validation"
+  | "not_found"
+  | "conflict"
+  | "invalid_response"
+  | "not_configured"
+  | "unknown";
+
 export class ApiError extends Error {
   constructor(
     message: string,
-    readonly code: "network" | "invalid_response" | "not_configured" | "unknown" = "unknown",
+    readonly code: ApiErrorCode = "unknown",
+    readonly status?: number,
   ) {
     super(message);
     this.name = "ApiError";

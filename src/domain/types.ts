@@ -137,6 +137,10 @@ export interface PlanTask {
   done: boolean;
   doneAt: string | null;
   source: TaskSource;
+  /** 0 = Monday … 6 = Sunday. Set for backend-planned tasks (remote mode). */
+  dayOfWeek?: number;
+  /** Backend locks tasks after Reality Check (remote mode). */
+  locked?: boolean;
 }
 
 export interface Plan {

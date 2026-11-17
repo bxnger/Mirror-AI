@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Python backend + its own static demo console (owned by the backend).
+    "backend/**",
   ]),
 ]);
 

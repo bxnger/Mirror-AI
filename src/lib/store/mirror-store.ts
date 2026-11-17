@@ -1,15 +1,22 @@
 /**
  * Client-side application state for MIRROR AI.
  *
- * Source of truth for the MVP: persisted to localStorage under a versioned key.
- * When the backend is ready, actions that change the profile/plan should also
- * call the API adapter (src/lib/api) — the shape of this state stays the same.
+ * OWNERSHIP
+ *  - demo mode (default build): this store is the source of truth, persisted to localStorage.
+ *  - remote mode (NEXT_PUBLIC_MIRROR_API_MODE=remote): the FastAPI backend is the source of
+ *    truth. The store only holds an in-memory cache built by src/lib/remote/session.ts
+ *    (state.remote is set) and that cache is NEVER written to localStorage. Old local
+ *    (non-demo) data is ignored in remote mode, so it can't overwrite or mix with server data.
+ *  - The fictional demo (state.isDemo) stays local and isolated in both modes.
  *
  * Exposed through useSyncExternalStore (see ./use-mirror.ts) so the server
  * render and hydration see `null` (→ loading state) and the client then reads
  * localStorage without hydration mismatches.
  */
 import type { CheckIn, Comparison, Decision, PathId, Plan, PlanTask, Profile } from "@/domain/types";
+import type { RemoteMeta } from "@/lib/remote/types";
+
+const REMOTE_MODE = process.env.NEXT_PUBLIC_MIRROR_API_MODE === "remote";
 
 export interface MirrorState {
   version: 2;
@@ -22,6 +29,8 @@ export interface MirrorState {
   plan: Plan | null;
   /** Weekly Reality Check entries (v2). Linked to a plan by planId. */
   checkIns: CheckIn[];
+  /** Present only for state synced from the backend (remote mode). Never persisted. */
+  remote?: RemoteMeta;
 }
 
 const STORAGE_KEY = "mirror-ai:state:v1";
@@ -55,7 +64,10 @@ function read(): MirrorState {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return EMPTY_STATE;
-    return migrate(JSON.parse(raw)) ?? EMPTY_STATE;
+    const local = migrate(JSON.parse(raw)) ?? EMPTY_STATE;
+    // Remote mode: only the isolated fictional demo may come from localStorage.
+    if (REMOTE_MODE && !local.isDemo) return EMPTY_STATE;
+    return local;
   } catch {
     // Private mode / corrupted JSON: start clean rather than crash.
     return EMPTY_STATE;
@@ -63,6 +75,16 @@ function read(): MirrorState {
 }
 
 function write(state: MirrorState) {
+  // Server-backed cache is never persisted locally (backend is the source of truth).
+  if (state.remote) return;
+  if (REMOTE_MODE && !state.isDemo) {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch {
@@ -159,7 +181,8 @@ export const actions = {
    */
   enterDemo(demo: MirrorState) {
     const current = mirrorStore.getSnapshot();
-    if (current.profile && !current.isDemo) {
+    // Remote mode: real data lives on the server, nothing local to park.
+    if (current.profile && !current.isDemo && !current.remote) {
       try {
         window.localStorage.setItem(BACKUP_KEY, JSON.stringify(current));
       } catch {

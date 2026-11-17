@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
-import { Alert, ArrowRight, Reset } from "@/components/ui/icons";
+import { ArrowRight } from "@/components/ui/icons";
 import { Field, TextArea } from "@/components/ui/form";
 import { PageHeader, Tag } from "@/components/ui/surface";
 import { exampleDecisionInput } from "@/fixtures/demo";
@@ -11,16 +11,17 @@ import { labTemplates, type LabTemplate } from "@/fixtures/lab-templates";
 import { getActiveLocale } from "@/i18n";
 import { PATH_IDS, type Decision, type PathId, type Profile } from "@/domain/types";
 import { checkText, LIMITS, validateScenario, type Errors } from "@/domain/validation";
-import { getApi } from "@/lib/api";
+import { ApiErrorNotice } from "@/components/layout/profile-gate";
+import { commands, remoteActive } from "@/lib/store/commands";
+import { BackendAnalysisPanel } from "./backend-analysis";
 import { t } from "@/i18n";
 import { cn } from "@/lib/cn";
 import { createId } from "@/lib/id";
-import { actions, type MirrorState } from "@/lib/store/use-mirror";
+import type { MirrorState } from "@/lib/store/use-mirror";
 import { ComparisonView } from "./comparison-view";
 import { emptyScenario, fromDraft, ScenarioForm, toDraft, type ScenarioDraft } from "./scenario-form";
 
 const T = t.lab;
-const api = getApi();
 
 interface Draft {
   question: string;
@@ -83,7 +84,7 @@ function LabStages({ stage }: { stage: 0 | 1 | 2 }) {
   );
 }
 
-type Status = { kind: "idle" } | { kind: "loading" } | { kind: "error"; message?: string };
+type Status = { kind: "idle" } | { kind: "loading" } | { kind: "error"; error: unknown; retry: () => void };
 
 export function WhatIfLab({ state }: { state: MirrorState & { profile: Profile } }) {
   const router = useRouter();
@@ -96,6 +97,7 @@ export function WhatIfLab({ state }: { state: MirrorState & { profile: Profile }
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [mobileTab, setMobileTab] = useState<PathId>("A");
   const [continuing, setContinuing] = useState(false);
+  const [choosing, setChoosing] = useState(false);
   const [focusErrors, setFocusErrors] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
   const resultRef = useRef<HTMLDivElement>(null);
@@ -108,13 +110,24 @@ export function WhatIfLab({ state }: { state: MirrorState & { profile: Profile }
   async function runComparison(d: Decision) {
     setStatus({ kind: "loading" });
     try {
-      const result = await api.compareScenarios({ profile, decision: d });
-      actions.setComparison(result);
+      await commands.compare(d, profile);
       setStatus({ kind: "idle" });
       setEditing(false);
       requestAnimationFrame(() => resultRef.current?.focus());
     } catch (err) {
-      setStatus({ kind: "error", message: err instanceof Error ? err.message : undefined });
+      setStatus({ kind: "error", error: err, retry: () => runComparison(d) });
+    }
+  }
+
+  async function onChoose(id: PathId) {
+    setChoosing(true);
+    try {
+      await commands.choose(id);
+      setStatus({ kind: "idle" });
+    } catch (err) {
+      setStatus({ kind: "error", error: err, retry: () => onChoose(id) });
+    } finally {
+      setChoosing(false);
     }
   }
 
@@ -138,7 +151,6 @@ export function WhatIfLab({ state }: { state: MirrorState & { profile: Profile }
       paths: { A: fromDraft(draft.A), B: fromDraft(draft.B) },
       createdAt: new Date().toISOString(),
     };
-    actions.saveDecision(next);
     void runComparison(next);
   }
 
@@ -150,11 +162,10 @@ export function WhatIfLab({ state }: { state: MirrorState & { profile: Profile }
     if (plan && plan.tasks.some((x) => x.done) && !window.confirm(T.result.rebuildConfirm)) return;
     setContinuing(true);
     try {
-      const next = await api.generatePlan({ profile, decision, pathId: selectedPath });
-      actions.setPlan(next);
+      await commands.createPlan({ profile, decision, pathId: selectedPath });
       router.push("/plan");
-    } catch {
-      setStatus({ kind: "error" });
+    } catch (err) {
+      setStatus({ kind: "error", error: err, retry: onContinue });
       setContinuing(false);
     }
   }
@@ -173,23 +184,14 @@ export function WhatIfLab({ state }: { state: MirrorState & { profile: Profile }
       />
       <div className="-mt-3 flex flex-col gap-3 border-y border-line py-3 md:flex-row md:items-center md:justify-between">
         <LabStages stage={stage} />
-        {api.mode === "demo" && <Tag tone="future">{t.demo.modeNote}</Tag>}
+        {!remoteActive() && <Tag tone="future">{t.demo.modeNote}</Tag>}
       </div>
 
       {status.kind === "error" && (
-        <div role="alert" className="flex flex-col gap-3 rounded-panel border border-risk/40 bg-risk/5 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex gap-3">
-            <Alert className="mt-1 shrink-0 text-risk" />
-            <div>
-              <p className="font-medium text-ink">{T.errorTitle}</p>
-              <p className="text-[14px] text-ink-2">{T.errorText}</p>
-            </div>
-          </div>
-          {decision && (
-            <Button onClick={() => runComparison(decision)} icon={<Reset size={14} />}>
-              {t.common.retry}
-            </Button>
-          )}
+        <div className="grid gap-2">
+          <p className="font-medium text-ink">{T.errorTitle}</p>
+          <ApiErrorNotice error={status.error} onRetry={status.retry} />
+          <p className="text-[13px] text-ink-3">{T.errorText}</p>
         </div>
       )}
 
@@ -200,15 +202,16 @@ export function WhatIfLab({ state }: { state: MirrorState & { profile: Profile }
             comparison={comparison}
             profile={profile}
             chosen={selectedPath}
-            onChoose={(id) => actions.selectPath(id)}
+            onChoose={(id) => void onChoose(id)}
             onEdit={() => {
               setDraft(draftFrom(decision));
               setEditing(true);
             }}
             onContinue={onContinue}
-            continuing={continuing}
+            continuing={continuing || choosing}
             planNote={planMatches ? T.result.planExists : undefined}
           />
+          {state.remote?.analysis && <BackendAnalysisPanel analysis={state.remote.analysis} />}
         </div>
       ) : (
         <form ref={formRef} onSubmit={onSubmit} noValidate className="grid gap-6" aria-busy={status.kind === "loading"}>
