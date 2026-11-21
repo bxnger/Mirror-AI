@@ -193,6 +193,14 @@ Scenario ──(Comparison)──▶ Decision ──▶ Plan ──▶ PlanTask 
 
 ---
 
+## Recovery Preview (P0)
+
+«План учёбы изменился. Что реально сделать сейчас?» — `POST /api/recovery/preview` детерминированно
+пересчитывает неделю под новое время: что оставить, сократить и отложить, резерв и один следующий шаг
+(~10 минут). Без пользователя, без базы данных, без LLM: это только предпросмотр, ничего не сохраняется.
+Демо (6 ч → 3 ч): `GET /api/recovery/demo`. Контракт: [`docs/recovery-contract.md`](../docs/recovery-contract.md),
+логика: `app/services/recovery.py`, тесты: `tests/test_recovery.py`.
+
 ## API (основное)
 
 | Этап | Метод |

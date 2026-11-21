@@ -121,7 +121,11 @@ def simulate_week(db: Session, user: m.User, plan: m.Plan) -> dict:
             if i < len(python_tasks) - 1:
                 planner.update_task(db, user, t, "done", None)
             else:
-                planner.update_task(db, user, t, "partial", max(15, t.planned_minutes // 2))
+                half = min(max(15, t.planned_minutes // 2), t.planned_minutes - 1)
+                if half >= 1:
+                    planner.update_task(db, user, t, "partial", half)
+                else:
+                    planner.update_task(db, user, t, "done", None)
     db.flush()
     return {"plan_id": plan.id, "label": DEMO_LABEL,
             "note": "Отметки выполнения сгенерированы как DEMO-данные."}

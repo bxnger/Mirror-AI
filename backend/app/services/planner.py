@@ -228,13 +228,20 @@ def update_task(db: Session, user: m.User, task: m.PlanTask, status: str, actual
     if task.plan.status == "reviewed":
         raise LoopError("План уже прошёл Reality Check — изменения задач закрыты.", stage="measure")
     if status not in {"pending", "done", "partial", "skipped"}:
-        raise LoopError(f"Неизвестный статус задачи: {status}", stage="execute")
+        raise LoopError(f"Неизвестный статус задачи: {status}", stage="execute", status_code=422)
     if status == "done" and actual_minutes is None:
         actual_minutes = task.planned_minutes
     if status in {"skipped", "pending"}:
-        actual_minutes = 0
-    if status == "partial" and actual_minutes is None:
-        raise LoopError("Для частичного выполнения укажите фактические минуты.", stage="execute")
+        actual_minutes = 0  # minutes sent with these statuses are ignored by design
+    if status == "partial":
+        # partial = some work, less than planned: 0 minutes is "skipped", >= planned is "done"
+        if actual_minutes is None or not 1 <= actual_minutes < task.planned_minutes:
+            raise LoopError(
+                f"Для частичного выполнения укажите от 1 до {task.planned_minutes - 1} фактических минут.",
+                stage="execute", status_code=422,
+            )
+    if status == "done" and actual_minutes < 1:
+        raise LoopError("Выполненная задача не может иметь 0 фактических минут.", stage="execute", status_code=422)
     was_completed = task.status in {"done", "partial"}
     task.status = status
     task.actual_minutes = max(0, int(actual_minutes or 0))
