@@ -13,11 +13,12 @@ from sqlalchemy.orm import Session
 
 from . import demo
 from . import models as m
+from . import recovery_schemas as rs
 from . import schemas as s
 from . import serializers as out
 from .config import get_settings
 from .db import get_db, init_db
-from .services import loop, memory, planner, reality, twin
+from .services import loop, memory, planner, reality, recovery, twin
 from .services.errors import LoopError
 
 FRONTEND_DIR = Path(__file__).resolve().parents[1] / "web"
@@ -46,12 +47,44 @@ async def revalidate_static(request: Request, call_next):
     return response
 
 
+RECOVERY_MAX_BODY_BYTES = 32 * 1024
+
+
+@app.middleware("http")
+async def limit_recovery_body(request: Request, call_next):
+    """Recovery preview is public and user-less: refuse oversized bodies before parsing them."""
+    if request.url.path.startswith("/api/recovery/"):
+        length = request.headers.get("content-length")
+        if length is not None and (not length.isdigit() or int(length) > RECOVERY_MAX_BODY_BYTES):
+            return JSONResponse(status_code=413, content={
+                "detail": f"Request body too large (max {RECOVERY_MAX_BODY_BYTES} bytes).", "stage": None,
+            })
+    return await call_next(request)
+
+
 @app.exception_handler(LoopError)
 async def loop_error_handler(_: Request, exc: LoopError):
     return JSONResponse(status_code=exc.status_code, content={"detail": exc.message, "stage": exc.stage})
 
 
 api = APIRouter(prefix="/api")
+
+
+# ----------------------------------------------------------------- recovery preview (stateless, no user, no DB)
+
+
+@api.post("/recovery/preview", response_model=rs.RecoveryPreviewOut, tags=["recovery"])
+def recovery_preview(body: rs.RecoveryPreviewIn) -> rs.RecoveryPreviewOut:
+    """Deterministic preview of a realistic plan under a new time budget. Nothing is stored."""
+    return recovery.build_preview(body)
+
+
+@api.get("/recovery/demo", tags=["recovery"])
+def recovery_demo():
+    """DEMO fixture (not real user data): 6 h planned -> 3 h available, with its preview."""
+    req = rs.RecoveryPreviewIn.model_validate(recovery.DEMO_FIXTURE)
+    return {"label": demo.DEMO_LABEL, "request": recovery.DEMO_FIXTURE,
+            "preview": recovery.build_preview(req).model_dump()}
 
 
 def today() -> date:

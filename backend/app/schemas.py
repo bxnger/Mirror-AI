@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import date
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -96,7 +97,7 @@ class PlanIn(BaseModel):
 
 
 class TaskUpdateIn(BaseModel):
-    status: str
+    status: Literal["pending", "done", "partial", "skipped"]
     actual_minutes: int | None = Field(default=None, ge=0, le=1440)
 
 
