@@ -1,6 +1,8 @@
 "use client";
 
 import { Logo } from "@/components/brand/logo";
+import { ButtonLink } from "@/components/ui/button";
+import { ArrowRight } from "@/components/ui/icons";
 import { TrajectoryMap } from "@/components/trajectory/trajectory-map";
 import { WelcomeActions } from "@/components/welcome/welcome-actions";
 import { t } from "@/i18n";
@@ -10,6 +12,7 @@ import { Preferences } from "@/components/layout/preferences";
 export default function WelcomePage() {
   useLocale();
   const ex = t.welcome.exampleMap;
+  const rec = t.welcome.recovery;
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-[1120px] flex-col px-4 md:px-8">
       <header className="flex h-16 items-center justify-between">
@@ -21,14 +24,33 @@ export default function WelcomePage() {
       </header>
 
       <main className="flex flex-col gap-10 pb-10 pt-6 md:gap-14 md:pt-10">
-        <div className="grid gap-6 md:gap-8">
-          {/* Editorial hero: headline left, lead + actions right (desktop) */}
+        {/* Primary positioning: immediate value when the study plan changes. */}
+        <section className="grid animate-rise gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-end lg:gap-12">
+          <div>
+            <p className="eyebrow">{rec.eyebrow}</p>
+            <h1 className="mt-3 font-serif text-display font-normal tracking-[-0.025em] text-balance">{rec.title}</h1>
+          </div>
+          <div className="lg:pb-2">
+            <p className="max-w-xl text-[16px] leading-relaxed text-ink-2 text-pretty md:text-[17px]">{rec.lead}</p>
+            <div className="mt-6 flex flex-col gap-2.5 sm:flex-row">
+              <ButtonLink href="/recover" variant="primary" size="lg" iconRight={<ArrowRight />}>
+                {rec.primary}
+              </ButtonLink>
+              <ButtonLink href="/recover/example" variant="secondary" size="lg">
+                {rec.secondary}
+              </ButtonLink>
+            </div>
+            <p className="mt-3 text-[13px] text-ink-3">{rec.note}</p>
+          </div>
+        </section>
+
+        <div className="grid gap-6 border-t border-line pt-10 md:gap-8">
+          {/* Advanced planning: the original Twin / Future Self concept. */}
           <section className="grid animate-rise gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-end lg:gap-12">
             <div>
-              <p className="eyebrow">{t.welcome.eyebrow}</p>
-              <h1 className="mt-3 font-serif text-display font-normal tracking-[-0.025em] text-balance">
-                {t.welcome.title}
-              </h1>
+              <p className="eyebrow">{rec.advancedEyebrow}</p>
+              <h2 className="mt-3 font-serif text-title font-normal tracking-[-0.02em] text-balance">{rec.advancedTitle}</h2>
+              <p className="mt-2 font-serif text-[18px] italic text-ink-2">{t.welcome.title}</p>
             </div>
             <div className="lg:pb-2">
               <p className="max-w-xl text-[16px] leading-relaxed text-ink-2 text-pretty md:text-[17px]">{t.welcome.lead}</p>

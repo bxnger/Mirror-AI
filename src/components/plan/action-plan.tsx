@@ -11,6 +11,7 @@ import { formatDate, formatNumber, t } from "@/i18n";
 import { ApiErrorNotice } from "@/components/layout/profile-gate";
 import { commands } from "@/lib/store/commands";
 import { useCommand } from "@/lib/store/use-command";
+import { TaskStatusControl } from "./task-status";
 import { cn } from "@/lib/cn";
 import { createId } from "@/lib/id";
 import { actions, type MirrorState } from "@/lib/store/use-mirror";
@@ -23,7 +24,7 @@ function TaskRow({ task, onToggle, busy }: { task: PlanTask; onToggle: (id: stri
   const title = task.source === "system" ? T.review : task.title;
   const disabled = busy || Boolean(task.locked);
   return (
-    <li className="group flex items-start gap-3 px-4 py-3 md:px-5">
+    <li className="group flex flex-wrap items-start gap-3 px-4 py-3 md:px-5">
       <label className={cn("flex min-w-0 flex-1 items-start gap-3", disabled ? "cursor-default" : "cursor-pointer")}>
         <input
           type="checkbox"
@@ -56,6 +57,12 @@ function TaskRow({ task, onToggle, busy }: { task: PlanTask; onToggle: (id: stri
           </span>
         </span>
       </label>
+      {/* Remote mode: full status incl. partial minutes — outside the label so it doesn't toggle the checkbox. */}
+      {task.status !== undefined && (
+        <div className="order-last basis-full pl-[30px]">
+          <TaskStatusControl task={task} title={title} />
+        </div>
+      )}
       {task.source === "user" && (
         <button
           type="button"

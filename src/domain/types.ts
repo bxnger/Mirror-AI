@@ -141,6 +141,10 @@ export interface PlanTask {
   dayOfWeek?: number;
   /** Backend locks tasks after Reality Check (remote mode). */
   locked?: boolean;
+  /** Remote mode: backend status and minutes (partial completion is counted exactly). */
+  status?: "pending" | "done" | "partial" | "skipped";
+  plannedMinutes?: number;
+  actualMinutes?: number;
 }
 
 export interface Plan {

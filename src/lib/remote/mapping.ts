@@ -128,6 +128,9 @@ export function planFrom(plans: BPlan[], decision: Decision, pathId: PathId): Pl
       source: "scenario" as const,
       dayOfWeek: t.day_of_week,
       locked: p.status === "reviewed",
+      status: t.status,
+      plannedMinutes: t.planned_minutes,
+      actualMinutes: t.actual_minutes,
     })),
   );
   const latest = plans[plans.length - 1];

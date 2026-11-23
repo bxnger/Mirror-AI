@@ -121,3 +121,14 @@ export function formatDate(iso: string | Date, opts: Intl.DateTimeFormatOptions 
   if (active === "kk" && (opts.month === "long" || opts.month === "short")) return formatKk(d, opts);
   return new Intl.DateTimeFormat(dictionaries[active].locale, opts).format(d);
 }
+
+/** Integer minutes → "2 ч 45 мин" / "2 сағ 45 мин" / "2 h 45 min" (locale units from the dictionary). */
+export function formatMinutes(total: number) {
+  const d = dictionaries[active].common;
+  const m = Math.max(0, Math.round(total));
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  if (h === 0) return `${rest} ${d.minutesShort}`;
+  if (rest === 0) return `${formatNumber(h, 0)} ${d.hoursShort}`;
+  return `${formatNumber(h, 0)} ${d.hoursShort} ${rest} ${d.minutesShort}`;
+}

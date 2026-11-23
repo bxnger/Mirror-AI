@@ -169,6 +169,11 @@ export function ensureSynced() {
   if (status.kind === "idle") void sync();
 }
 
+/** True when this browser is connected to a backend profile (no network call). */
+export function hasRemoteUser(): boolean {
+  return readUserId() !== null;
+}
+
 function requireUser(): number {
   const id = readUserId();
   if (id === null) throw new ApiError("no remote user", "not_found");
@@ -280,6 +285,20 @@ export async function choose(pathId: PathId): Promise<void> {
 export async function generatePlan(): Promise<void> {
   const userId = requireUser();
   await request(`/users/${userId}/plans`, { method: "POST", body: {} });
+  await sync();
+}
+
+export type TaskStatus = "pending" | "done" | "partial" | "skipped";
+
+/**
+ * PATCH /tasks/{id} (contract §10): done → actual defaults to planned; partial needs
+ * 1 … planned−1 minutes; skipped/pending → 0 (no minutes sent).
+ */
+export async function setTaskStatus(taskId: string, status: TaskStatus, actualMinutes?: number): Promise<void> {
+  const userId = requireUser();
+  const body: { status: TaskStatus; actual_minutes?: number } = { status };
+  if (status === "partial") body.actual_minutes = actualMinutes;
+  await request(`/users/${userId}/tasks/${taskId}`, { method: "PATCH", body });
   await sync();
 }
 

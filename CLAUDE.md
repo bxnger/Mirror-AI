@@ -14,7 +14,9 @@ npm run build
 ```
 
 ## Map
-- Routes: `src/app/page.tsx` (welcome), `onboarding/`, `(app)/twin|lab|plan|reality` (wrapped by `AppShell`).
+- Routes: `src/app/page.tsx` (landing: Recovery first, Twin as advanced planning), `recover/` + `recover/example/` (guest Recovery), `onboarding/`, `(app)/twin|lab|plan|reality` (wrapped by `AppShell`).
+- Recovery (P0, contract `docs/recovery-contract.md`): client `src/lib/api/recovery.ts`, UI `src/components/recovery/`. Stateless preview — never save, never "apply", label "Предпросмотр — ничего не сохранено". All numbers from the response; every code translated in ru/kk/en (`t.recovery.*`), unknown codes hidden, never raw. Saved plan tasks are read only after explicit opt-in.
+- Task status (remote): `src/components/plan/task-status.tsx` → `PATCH /tasks/{id}` (pending/done/partial/skipped; partial = 1…planned−1 min).
 - Domain logic (pure, no React): `src/domain/` — `analysis.ts` (A/B rules), `simulation.ts` (Future Paths), `reality.ts` (plan vs actual, updated timeline), `plan.ts`, `validation.ts`, `types.ts`.
 - State: `src/lib/store/` (localStorage v2 + migration, `useMirror()`, `actions`; demo backs up real data under `mirror-ai:backup:v1`). **All data-changing UI calls go through `commands` (`src/lib/store/commands.ts`)**, which dispatch to local actions (demo) or the backend.
 - Backend integration: `src/lib/api/http.ts` (same-origin `/mirror-api` → `next.config.ts` rewrite), `src/lib/remote/` (`session.ts` sync and operations, pure `mapping.ts`). Mode: `NEXT_PUBLIC_MIRROR_API_MODE=remote`. In remote mode the backend owns the data; never persist the server cache.

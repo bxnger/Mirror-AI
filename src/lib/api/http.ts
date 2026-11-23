@@ -58,12 +58,21 @@ export async function request<T>(path: string, { method = "GET", body, timeoutMs
           ? "conflict"
           : res.status === 422
             ? "validation"
+            : res.status === 413
+              ? "too_large"
             : res.status >= 500 && data === null
               ? "unavailable" // proxy could not reach the backend (no JSON body)
               : res.status >= 500
                 ? "server"
                 : "unknown";
-    throw new ApiError(message, code, res.status);
+    const issues = Array.isArray(detail)
+      ? detail.map((d: { loc?: (string | number)[]; msg?: string; type?: string }) => ({
+          loc: d.loc ?? [],
+          msg: d.msg ?? "",
+          type: d.type,
+        }))
+      : [];
+    throw new ApiError(message, code, res.status, issues);
   }
   return data as T;
 }

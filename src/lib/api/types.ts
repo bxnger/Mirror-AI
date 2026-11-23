@@ -17,17 +17,26 @@ export type ApiErrorCode =
   | "unavailable"
   | "server"
   | "validation"
+  | "too_large"
   | "not_found"
   | "conflict"
   | "invalid_response"
   | "not_configured"
   | "unknown";
 
+/** One FastAPI validation issue (422). `loc` e.g. ["body", "new_weekly_minutes"]. */
+export interface ValidationIssue {
+  loc: (string | number)[];
+  msg: string;
+  type?: string;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly code: ApiErrorCode = "unknown",
     readonly status?: number,
+    readonly issues: ValidationIssue[] = [],
   ) {
     super(message);
     this.name = "ApiError";

@@ -13,6 +13,7 @@ import { cn } from "@/lib/cn";
 import type { RemoteMeta } from "@/lib/remote/types";
 import { commands } from "@/lib/store/commands";
 import { useCommand } from "@/lib/store/use-command";
+import { TaskStatusControl } from "@/components/plan/task-status";
 
 const NOTE_MAX = 300;
 
@@ -36,7 +37,9 @@ export function RemoteWeek({
   const RR = t.remote.reality;
   const live = weekTasks(plan, week);
   const isLatest = week === remote.planIds.length;
-  const doneHours = live.tasks.filter((x) => x.done).reduce((s, x) => s + x.estimateHours, 0);
+  // Same basis as the backend: actual minutes per task (partial counted exactly).
+  const doneHours =
+    live.tasks.reduce((s, x) => s + (x.actualMinutes ?? (x.done ? x.estimateHours * 60 : 0)), 0) / 60;
   const [kind, setKind] = useState<CheckInKind | null>(null);
   const [note, setNote] = useState("");
   const [difficulty, setDifficulty] = useState<number | null>(null);
@@ -102,6 +105,11 @@ export function RemoteWeek({
                   {formatNumber(task.estimateHours)} {t.common.hoursShort}
                 </span>
               </label>
+              {!task.locked && (
+                <div className="px-4 pb-2.5 pl-[46px]">
+                  <TaskStatusControl task={task} title={task.title} />
+                </div>
+              )}
             </li>
           );
         })}

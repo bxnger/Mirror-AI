@@ -59,6 +59,10 @@ adapts to the real API below. Nothing in `backend/` was changed.
 10. **No delete or archive** for goals or users, and no name update. → Editing the profile doesn't rename the backend user; changed paths create new track goals and the old ones stay active.
 11. **Partial task completion** (`partial` + minutes) is not exposed in the UI yet (done/pending only).
 
+## Recovery Preview (P0) and task status
+- `POST /recovery/preview`, `GET /recovery/demo` are used as documented in `docs/recovery-contract.md` (guest `/recover`, example `/recover/example`).
+- `PATCH /tasks/{id}` now exposes `partial` (1…planned−1 minutes) and `skipped` in the remote plan UI; resolves item 11 below.
+
 ## Requests for the backend (Erasyl)
 - Optional fields or endpoints for: stage, skills (beyond goal states), scenario metadata (duration, pros/cons, demands), user rename, goal archive.
 - `PATCH /reality-checks/{id}` if editing check-ins should be possible.

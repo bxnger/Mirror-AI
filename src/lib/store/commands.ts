@@ -51,6 +51,11 @@ export const commands = {
     actions.toggleTask(taskId);
   },
 
+  /** Remote only: full backend status set incl. partial minutes. */
+  async setTaskStatus(taskId: string, status: remote.TaskStatus, actualMinutes?: number) {
+    return remote.setTaskStatus(taskId, status, actualMinutes);
+  },
+
   async saveCheckIn(checkIn: CheckIn, extra?: { difficulty: number | null }) {
     if (remoteActive()) {
       return remote.submitRealityCheck({ week: checkIn.week, note: checkIn.note, kind: checkIn.kind, difficulty: extra?.difficulty ?? null });
